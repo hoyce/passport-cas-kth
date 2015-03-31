@@ -1,6 +1,6 @@
 {
   "name": "passport-cas-kth",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Cas authentication strategies for Passport based but modified from github.com/sadne/passport-cas.",
   "main": "index.js",
   "scripts": {},
