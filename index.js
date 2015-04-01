@@ -7,7 +7,7 @@ var url = require('url'),
     passport = require('passport')
 
 // query parameter used to request a gateway SSO
-var gatewayParameter = '&useGateway=true';
+var gatewayParameter = 'useGateway=true';
 
 /**
  * Creates an instance of `Strategy`.
@@ -52,10 +52,9 @@ Strategy.prototype.authenticate = function(req, options) {
   var service = url.resolve(this.serverBaseURL, origUrl);
   // check if gateway SSO requested, remove any
   // gateway query parameter from URL
-  if (useGatewayAuthentication(req)) {
-    var serviceUrl = service;
-    service = stripGatewayAuthenticationParameter(serviceUrl);
-  }
+  var serviceUrl = url.parse(service, true);
+  delete serviceUrl.search;
+  service = stripGatewayAuthenticationParameter(serviceUrl);
 
   if (!ticket) {
     // Building the redirect url to the login server
@@ -73,24 +72,16 @@ Strategy.prototype.authenticate = function(req, options) {
     return this.redirect(url.format(loginServerURL));
   }
 
-  // Coming back from login server with ticket included
-  // Parses the service url to a object
-  var serviceURL = url.parse(service, true);
-
-  // Forces the url.format to use query instead of search by removing search
-  delete serviceURL.search;
-
-  // Remove the ticket parameter before validation
-  delete serviceURL.query.ticket;
-
-  // Extracts the nextUrl parameter because it's already encoded
-  var nextUrl = serviceURL.query.nextUrl;
-
-  // Delete the nextUrl parameter
-  delete serviceURL.query.nextUrl;
-
   // Formatting the service url and adding the nextUrl parameter after it's done due to double encoding
-  var validateService = url.format(serviceURL) + "?nextUrl=" + nextUrl;
+  // Adding the service parameter
+  // Re-creates the original service URL.
+  // Remove search and ticket since they are not valid now
+  var baseServiceUrl = url.resolve(this.serverBaseURL, origUrl);
+  var tmpUrl = url.parse(baseServiceUrl, true);
+  delete tmpUrl.search;
+  delete tmpUrl.query.ticket;
+  var nextUrl = stripGatewayAuthenticationParameter(tmpUrl);
+  var validateService = nextUrl;
 
   var self = this;
 
@@ -177,7 +168,13 @@ function stripGatewayAuthenticationParameter(aUrl) {
   if (aUrl.query && aUrl.query.useGateway) {
     delete aUrl.query.useGateway;
   }
-  return aUrl;
+  if (aUrl.query.nextUrl) {
+    var theNextUrl = decodeURIComponent(aUrl.query.nextUrl);
+    aUrl.query.nextUrl = decodeURIComponent(theNextUrl);
+  }
+  var theUrl = url.format(aUrl);
+
+  return theUrl;
 }
 
 /**
